@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Amazon Clean Link Copy Button
 // @namespace    https://github.com/etak64n/userscripts
-// @version      1.1.1
+// @version      1.2.0
 // @description  Add a circular copy button (left of the share icon) that copies "title + clean /dp/ URL"
 // @author       etak64n
 // @match        https://www.amazon.co.jp/*
@@ -14,6 +14,9 @@
 
 (() => {
   'use strict';
+
+  const VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : 'dev';
+  const log = (...args) => console.log(`[amazon-clean-link v${VERSION}]`, ...args);
 
   const BTN_ID = 'clean-link-copy-btn';
 
@@ -57,14 +60,22 @@
     btn.title = 'タイトルとリンクをコピー';
     btn.innerHTML = COPY_SVG;
 
+    // Amazon binds delegated handlers (share popup etc.) on ancestors;
+    // keep every pointer event on this button from reaching them.
+    for (const type of ['pointerdown', 'mousedown', 'mouseup', 'touchstart', 'touchend']) {
+      btn.addEventListener(type, (e) => e.stopPropagation());
+    }
+
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const text = `${titleEl.textContent.trim()}\n${location.origin}/dp/${asin}`;
       try {
         await navigator.clipboard.writeText(text);
+        log('copied:', text);
         btn.innerHTML = CHECK_SVG;
-      } catch {
+      } catch (err) {
+        log('clipboard write failed, falling back to prompt:', err);
         prompt('手動でコピーしてください', text);
         return;
       }
@@ -79,14 +90,17 @@
     if (shareWidget) {
       btn.classList.add('floated');
       shareWidget.insertAdjacentElement('afterend', btn);
+      log('button inserted next to share widget, ASIN:', asin);
     } else {
       const h1 = document.getElementById('title');
       if (!h1) return;
       btn.classList.add('inline');
       h1.appendChild(btn);
+      log('share widget not found, button inserted inline in #title, ASIN:', asin);
     }
   };
 
+  log('script loaded on', location.pathname);
   addButton();
   // Amazon partially re-renders the page; watch for the title appearing later
   new MutationObserver(addButton).observe(document.body, { childList: true, subtree: true });
