@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Amazon Clean Link Copy Button
 // @namespace    https://github.com/etak64n/userscripts
-// @version      1.1.0
+// @version      1.1.1
 // @description  Add a circular copy button (left of the share icon) that copies "title + clean /dp/ URL"
 // @author       etak64n
 // @match        https://www.amazon.co.jp/*
@@ -59,6 +59,7 @@
 
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const text = `${titleEl.textContent.trim()}\n${location.origin}/dp/${asin}`;
       try {
         await navigator.clipboard.writeText(text);
@@ -71,11 +72,13 @@
     });
 
     // Preferred spot: left of the share icon (both are float:right, so
-    // the later float ends up on the left). Fall back to inline after the title.
-    const shareFloat = document.querySelector('#ssf-primary-widget-desktop .ssf-background-float');
-    if (shareFloat) {
+    // the later float ends up on the left). Insert AFTER the widget span, not
+    // inside it — the span is a-declarative and clicks inside it open the
+    // share popup. Fall back to inline after the title.
+    const shareWidget = document.getElementById('ssf-primary-widget-desktop');
+    if (shareWidget) {
       btn.classList.add('floated');
-      shareFloat.insertAdjacentElement('afterend', btn);
+      shareWidget.insertAdjacentElement('afterend', btn);
     } else {
       const h1 = document.getElementById('title');
       if (!h1) return;
